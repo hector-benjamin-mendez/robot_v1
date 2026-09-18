@@ -2,7 +2,7 @@
 ## Un robot controlado por Ollama Qwen3 4B dentro de una Jetson Orin NX, utilizando funciones para utilizar los motores,camara y sus herramientas.
 
 ### ¿Como funciona?
-* Utilizamos un archivo llamado ``` Tekni.MD ``` que funciona como system prompt, con personalidad,funciones y instrucciones para Tekni
+* Utilizamos un archivo llamado ``` robot.md ``` que funciona como system prompt, con personalidad,funciones y instrucciones para Tekni
 * Tendremos un archivo llamado ``` herramientas.py ``` donde se definen todas las herramientas que tendra el LLM.
 
 
