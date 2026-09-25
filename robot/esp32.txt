@@ -1,0 +1,239 @@
+// =========================
+// CONFIGURACIÓN DE MOTORES
+// =========================
+
+const int MOTOR_IZQ_A = 25;
+const int MOTOR_IZQ_B = 26;
+
+const int MOTOR_DER_A = 27;
+const int MOTOR_DER_B = 14;
+
+
+// =========================
+// SEGURIDAD
+// =========================
+
+const unsigned long HEARTBEAT_TIMEOUT = 2000;
+
+unsigned long ultimoHeartbeat = 0;
+
+
+// =========================
+// SETUP
+// =========================
+
+void setup() {
+
+    Serial.begin(115200);
+
+    pinMode(MOTOR_IZQ_A, OUTPUT);
+    pinMode(MOTOR_IZQ_B, OUTPUT);
+
+    pinMode(MOTOR_DER_A, OUTPUT);
+    pinMode(MOTOR_DER_B, OUTPUT);
+
+    detenerMotores();
+
+    ultimoHeartbeat = millis();
+
+    Serial.println("ESP32 LISTA");
+}
+
+
+// =========================
+// LOOP PRINCIPAL
+// =========================
+
+void loop() {
+
+    if (Serial.available()) {
+
+        String comando = Serial.readStringUntil('\n');
+
+        comando.trim();
+
+        procesarComando(comando);
+    }
+
+    verificarHeartbeat();
+}
+
+
+// =========================
+// PROCESAMIENTO DE COMANDOS
+// =========================
+
+void procesarComando(String comando) {
+
+    if (comando == "HEARTBEAT") {
+
+        ultimoHeartbeat = millis();
+
+        Serial.println("HEARTBEAT_OK");
+
+        return;
+    }
+
+
+    if (comando == "STOP") {
+
+        detenerMotores();
+
+        Serial.println("STOP_OK");
+
+        return;
+    }
+
+
+    if (comando.startsWith("MOVE FORWARD")) {
+
+        int velocidad = obtenerVelocidad(comando);
+
+        adelante(velocidad);
+
+        Serial.println("MOVE_OK");
+
+        return;
+    }
+
+
+    if (comando.startsWith("MOVE BACKWARD")) {
+
+        int velocidad = obtenerVelocidad(comando);
+
+        atras(velocidad);
+
+        Serial.println("MOVE_OK");
+
+        return;
+    }
+
+
+    if (comando.startsWith("TURN LEFT")) {
+
+        int velocidad = obtenerVelocidad(comando);
+
+        izquierda(velocidad);
+
+        Serial.println("MOVE_OK");
+
+        return;
+    }
+
+
+    if (comando.startsWith("TURN RIGHT")) {
+
+        int velocidad = obtenerVelocidad(comando);
+
+        derecha(velocidad);
+
+        Serial.println("MOVE_OK");
+
+        return;
+    }
+
+
+    Serial.println("COMANDO_DESCONOCIDO");
+}
+
+
+// =========================
+// OBTENER VELOCIDAD
+// =========================
+
+int obtenerVelocidad(String comando) {
+
+    int espacio = comando.lastIndexOf(' ');
+
+    if (espacio == -1) {
+        return 0;
+    }
+
+    int velocidad = comando.substring(
+        espacio + 1
+    ).toInt();
+
+
+    // Limitamos entre 0 y 100
+
+    if (velocidad < 0) {
+        velocidad = 0;
+    }
+
+    if (velocidad > 100) {
+        velocidad = 100;
+    }
+
+    return velocidad;
+}
+
+
+// =========================
+// MOVIMIENTO
+// =========================
+
+void adelante(int velocidad) {
+
+    analogWrite(MOTOR_IZQ_A, velocidad);
+    analogWrite(MOTOR_IZQ_B, 0);
+
+    analogWrite(MOTOR_DER_A, velocidad);
+    analogWrite(MOTOR_DER_B, 0);
+}
+
+
+void atras(int velocidad) {
+
+    analogWrite(MOTOR_IZQ_A, 0);
+    analogWrite(MOTOR_IZQ_B, velocidad);
+
+    analogWrite(MOTOR_DER_A, 0);
+    analogWrite(MOTOR_DER_B, velocidad);
+}
+
+
+void izquierda(int velocidad) {
+
+    analogWrite(MOTOR_IZQ_A, 0);
+    analogWrite(MOTOR_IZQ_B, velocidad);
+
+    analogWrite(MOTOR_DER_A, velocidad);
+    analogWrite(MOTOR_DER_B, 0);
+}
+
+
+void derecha(int velocidad) {
+
+    analogWrite(MOTOR_IZQ_A, velocidad);
+    analogWrite(MOTOR_IZQ_B, 0);
+
+    analogWrite(MOTOR_DER_A, 0);
+    analogWrite(MOTOR_DER_B, velocidad);
+}
+
+
+// =========================
+// DETENER MOTORES
+// =========================
+
+void detenerMotores() {
+
+    analogWrite(MOTOR_IZQ_A, 0);
+    analogWrite(MOTOR_IZQ_B, 0);
+
+    analogWrite(MOTOR_DER_A, 0);
+    analogWrite(MOTOR_DER_B, 0);
+}
+
+
+// =========================
+// SEGURIDAD - HEARTBEAT
+// =========================
+
+void verificarHeartbeat() {
+
+    if (millis() - ultimoHeartbeat > HEARTBEAT_TIMEOUT) {
+
+        detenerMotores();
+    }
+}
