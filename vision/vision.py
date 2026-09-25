@@ -19,3 +19,5 @@ class Vision:
         except Exception as e:
             print(f"Ocurrio un error: {e}")
             return None
+
+    

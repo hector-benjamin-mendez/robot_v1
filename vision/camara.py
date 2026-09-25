@@ -1,20 +1,21 @@
 import cv2
 
-class Camara():
+class Camara:
     def __init__(self):
         self.camara = cv2.VideoCapture(0)
         if not self.camara.isOpened():
-            print("No se pudo cargar la camara.")
-            exit()
+            raise RuntimeError("No se pudo cargar la cámara.")
 
-    def sacar_foto(self):
+    def sacar_foto(self, ruta="foto-capturada.jpg"):
         ret, fotograma = self.camara.read()
         if not ret:
-            print("No se pudo leer fotograma de la camara.")
-            return
-        cv2.imwrite('foto-capturada.jpg', fotograma)
-        print("Foto guardada como 'foto-capturada.jpg'")
-        self.camara.release()
+            print("No se pudo leer fotograma de la cámara.")
+            return False
+        cv2.imwrite(ruta, fotograma)
+        print(f"Foto guardada como '{ruta}'")
+        return True
+
+    def cerrar(self):
+        if self.camara.isOpened():
+            self.camara.release()
         cv2.destroyAllWindows()
-        return
-        
