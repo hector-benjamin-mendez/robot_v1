@@ -1,47 +1,47 @@
-import requests
+import json
+import os
 from pathlib import Path
+
+import requests
 
 
 class LLM:
-    def __init__(self,modelo="qwen3:4b",url="http://localhost:11434/api/chat",prompt_path=None):
-        self.modelo = modelo
-        self.url = url
-        if prompt_path:
-            self.system_prompt = self.cargar_prompt(prompt_path)
-        else:
-            self.system_prompt = ""
+    """Cliente REST para OpenAI; evita depender del SDK oficial en el Jetson."""
 
-    def cargar_prompt(self, ruta):
-        ruta = Path(ruta)
+    def __init__(self, modelo=None, prompt_path=None, api_key=None, timeout=45):
+        self.modelo = modelo or os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+        self.api_key = api_key or os.getenv("OPENAI_API_KEY", "")
+        self.timeout = timeout
+        ruta_prompt = Path(prompt_path) if prompt_path else Path(__file__).with_name("prompts.md")
+        self.system_prompt = self.cargar_prompt(ruta_prompt)
+
+    @staticmethod
+    def cargar_prompt(ruta):
         try:
-            return ruta.read_text(encoding="utf-8")
-        except Exception as e:
-            print(f"No se pudo cargar el prompt: {e}")
-            return ""
+            return Path(ruta).read_text(encoding="utf-8")
+        except OSError as exc:
+            raise RuntimeError("No se pudo cargar el prompt {}: {}".format(ruta, exc))
 
     def preguntar(self, mensajes, tools=None):
-        mensajes_completos = [
-            {
-                "role": "system",
-                "content": self.system_prompt
-            }
-        ]
+        if not self.api_key:
+            print("Falta OPENAI_API_KEY en las variables de entorno.")
+            return None
+        mensajes_completos = [{"role": "system", "content": self.system_prompt}]
         mensajes_completos.extend(mensajes)
-        datos = {
-            "model": self.modelo,
-            "messages": mensajes_completos,
-            "stream": False
-        }
+        datos = {"model": self.modelo, "messages": mensajes_completos}
         if tools:
             datos["tools"] = tools
+            datos["tool_choice"] = "auto"
         try:
             respuesta = requests.post(
-                self.url,
-                json=datos,
-                timeout=120
+                "https://api.openai.com/v1/chat/completions",
+                headers={"Authorization": "Bearer " + self.api_key, "Content-Type": "application/json"},
+                data=json.dumps(datos, ensure_ascii=False).encode("utf-8"),
+                timeout=self.timeout,
             )
             respuesta.raise_for_status()
-            return respuesta.json()
-        except requests.exceptions.RequestException as e:
-            print(f" Error conectando con Ollama: {e}")
+            payload = respuesta.json()
+            return {"message": payload["choices"][0]["message"]}
+        except (requests.RequestException, ValueError, KeyError, IndexError) as exc:
+            print("Error consultando OpenAI: {}".format(exc))
             return None

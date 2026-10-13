@@ -1,239 +1,115 @@
-// =========================
-// CONFIGURACIÓN DE MOTORES
-// =========================
+// Tekni - Firmware ESP32
+// IMPORTANTE: verificar driver de motores, pines y soporte PWM de la placa antes de energizar.
 
 const int MOTOR_IZQ_A = 25;
 const int MOTOR_IZQ_B = 26;
-
 const int MOTOR_DER_A = 27;
 const int MOTOR_DER_B = 14;
 
-
-// =========================
-// SEGURIDAD
-// =========================
-
 const unsigned long HEARTBEAT_TIMEOUT = 2000;
+const unsigned long DURACION_MAXIMA = 1000;
 
 unsigned long ultimoHeartbeat = 0;
-
-
-// =========================
-// SETUP
-// =========================
+unsigned long finMovimiento = 0;
+bool movimientoActivo = false;
 
 void setup() {
-
     Serial.begin(115200);
-
     pinMode(MOTOR_IZQ_A, OUTPUT);
     pinMode(MOTOR_IZQ_B, OUTPUT);
-
     pinMode(MOTOR_DER_A, OUTPUT);
     pinMode(MOTOR_DER_B, OUTPUT);
-
     detenerMotores();
-
     ultimoHeartbeat = millis();
-
     Serial.println("ESP32 LISTA");
 }
 
-
-// =========================
-// LOOP PRINCIPAL
-// =========================
-
 void loop() {
-
     if (Serial.available()) {
-
         String comando = Serial.readStringUntil('\n');
-
         comando.trim();
-
         procesarComando(comando);
     }
-
     verificarHeartbeat();
+    verificarFinMovimiento();
 }
 
-
-// =========================
-// PROCESAMIENTO DE COMANDOS
-// =========================
-
 void procesarComando(String comando) {
-
     if (comando == "HEARTBEAT") {
-
         ultimoHeartbeat = millis();
-
         Serial.println("HEARTBEAT_OK");
-
         return;
     }
-
-
     if (comando == "STOP") {
-
         detenerMotores();
-
+        movimientoActivo = false;
         Serial.println("STOP_OK");
-
         return;
     }
 
+    if (comando.startsWith("MOVE FORWARD ") || comando.startsWith("MOVE BACKWARD ") ||
+        comando.startsWith("TURN LEFT ") || comando.startsWith("TURN RIGHT ")) {
+        int velocidad = obtenerParametro(comando, 2);
+        int duracion = obtenerParametro(comando, 1);
+        velocidad = constrain(velocidad, 0, 50);
+        duracion = constrain(duracion, 100, DURACION_MAXIMA);
 
-    if (comando.startsWith("MOVE FORWARD")) {
+        if (comando.startsWith("MOVE FORWARD ")) adelante(velocidad);
+        else if (comando.startsWith("MOVE BACKWARD ")) atras(velocidad);
+        else if (comando.startsWith("TURN LEFT ")) izquierda(velocidad);
+        else derecha(velocidad);
 
-        int velocidad = obtenerVelocidad(comando);
-
-        adelante(velocidad);
-
+        finMovimiento = millis() + (unsigned long)duracion;
+        movimientoActivo = true;
         Serial.println("MOVE_OK");
-
         return;
     }
-
-
-    if (comando.startsWith("MOVE BACKWARD")) {
-
-        int velocidad = obtenerVelocidad(comando);
-
-        atras(velocidad);
-
-        Serial.println("MOVE_OK");
-
-        return;
-    }
-
-
-    if (comando.startsWith("TURN LEFT")) {
-
-        int velocidad = obtenerVelocidad(comando);
-
-        izquierda(velocidad);
-
-        Serial.println("MOVE_OK");
-
-        return;
-    }
-
-
-    if (comando.startsWith("TURN RIGHT")) {
-
-        int velocidad = obtenerVelocidad(comando);
-
-        derecha(velocidad);
-
-        Serial.println("MOVE_OK");
-
-        return;
-    }
-
-
     Serial.println("COMANDO_DESCONOCIDO");
 }
 
-
-// =========================
-// OBTENER VELOCIDAD
-// =========================
-
-int obtenerVelocidad(String comando) {
-
-    int espacio = comando.lastIndexOf(' ');
-
-    if (espacio == -1) {
-        return 0;
-    }
-
-    int velocidad = comando.substring(
-        espacio + 1
-    ).toInt();
-
-
-    // Limitamos entre 0 y 100
-
-    if (velocidad < 0) {
-        velocidad = 0;
-    }
-
-    if (velocidad > 100) {
-        velocidad = 100;
-    }
-
-    return velocidad;
+// Obtiene el parámetro por posición desde el final: speed está en -2 y duración en -1.
+int obtenerParametro(String comando, int posicionDesdeFinal) {
+    int ultimoEspacio = comando.lastIndexOf(' ');
+    if (ultimoEspacio < 0) return 0;
+    String ultimo = comando.substring(ultimoEspacio + 1);
+    if (posicionDesdeFinal == 1) return ultimo.toInt();
+    comando = comando.substring(0, ultimoEspacio);
+    ultimoEspacio = comando.lastIndexOf(' ');
+    if (ultimoEspacio < 0) return 0;
+    String penultimo = comando.substring(ultimoEspacio + 1);
+    if (posicionDesdeFinal == 2) return penultimo.toInt();
+    return 0;
 }
-
-
-// =========================
-// MOVIMIENTO
-// =========================
 
 void adelante(int velocidad) {
-
-    analogWrite(MOTOR_IZQ_A, velocidad);
-    analogWrite(MOTOR_IZQ_B, 0);
-
-    analogWrite(MOTOR_DER_A, velocidad);
-    analogWrite(MOTOR_DER_B, 0);
+    analogWrite(MOTOR_IZQ_A, velocidad); analogWrite(MOTOR_IZQ_B, 0);
+    analogWrite(MOTOR_DER_A, velocidad); analogWrite(MOTOR_DER_B, 0);
 }
-
-
 void atras(int velocidad) {
-
-    analogWrite(MOTOR_IZQ_A, 0);
-    analogWrite(MOTOR_IZQ_B, velocidad);
-
-    analogWrite(MOTOR_DER_A, 0);
-    analogWrite(MOTOR_DER_B, velocidad);
+    analogWrite(MOTOR_IZQ_A, 0); analogWrite(MOTOR_IZQ_B, velocidad);
+    analogWrite(MOTOR_DER_A, 0); analogWrite(MOTOR_DER_B, velocidad);
 }
-
-
 void izquierda(int velocidad) {
-
-    analogWrite(MOTOR_IZQ_A, 0);
-    analogWrite(MOTOR_IZQ_B, velocidad);
-
-    analogWrite(MOTOR_DER_A, velocidad);
-    analogWrite(MOTOR_DER_B, 0);
+    analogWrite(MOTOR_IZQ_A, 0); analogWrite(MOTOR_IZQ_B, velocidad);
+    analogWrite(MOTOR_DER_A, velocidad); analogWrite(MOTOR_DER_B, 0);
 }
-
-
 void derecha(int velocidad) {
-
-    analogWrite(MOTOR_IZQ_A, velocidad);
-    analogWrite(MOTOR_IZQ_B, 0);
-
-    analogWrite(MOTOR_DER_A, 0);
-    analogWrite(MOTOR_DER_B, velocidad);
+    analogWrite(MOTOR_IZQ_A, velocidad); analogWrite(MOTOR_IZQ_B, 0);
+    analogWrite(MOTOR_DER_A, 0); analogWrite(MOTOR_DER_B, velocidad);
 }
-
-
-// =========================
-// DETENER MOTORES
-// =========================
-
 void detenerMotores() {
-
-    analogWrite(MOTOR_IZQ_A, 0);
-    analogWrite(MOTOR_IZQ_B, 0);
-
-    analogWrite(MOTOR_DER_A, 0);
-    analogWrite(MOTOR_DER_B, 0);
+    analogWrite(MOTOR_IZQ_A, 0); analogWrite(MOTOR_IZQ_B, 0);
+    analogWrite(MOTOR_DER_A, 0); analogWrite(MOTOR_DER_B, 0);
 }
-
-
-// =========================
-// SEGURIDAD - HEARTBEAT
-// =========================
-
 void verificarHeartbeat() {
-
     if (millis() - ultimoHeartbeat > HEARTBEAT_TIMEOUT) {
-
         detenerMotores();
+        movimientoActivo = false;
+    }
+}
+void verificarFinMovimiento() {
+    if (movimientoActivo && (long)(millis() - finMovimiento) >= 0) {
+        detenerMotores();
+        movimientoActivo = false;
     }
 }

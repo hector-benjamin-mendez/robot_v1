@@ -1,31 +1,34 @@
+import os
+
 from faster_whisper import WhisperModel
 
-class ProcesadorSTT:
-    def __init__(self,cola_audio):
-        self.cola_audio = cola_audio
-        print("Cargando modelo whisper...")
-        self.modelo_whisper = WhisperModel("tiny", device="cpu", compute_type="int8")
-        print("Modelo cargado correctamente.")
 
-    def iniciar_procesamiento(self):    
+class ProcesadorSTT:
+    def __init__(self, cola_audio, callback_texto=None, modelo=None):
+        self.cola_audio = cola_audio
+        self.callback_texto = callback_texto
+        nombre_modelo = modelo or os.getenv("WHISPER_MODEL", "tiny")
+        print(f"Cargando Faster-Whisper ({nombre_modelo}, CPU int8)...")
+        self.modelo_whisper = WhisperModel(nombre_modelo, device="cpu", compute_type="int8", cpu_threads=2)
+        print("Whisper listo.")
+
+    def transcribir(self, audio_data):
+        segmentos, _ = self.modelo_whisper.transcribe(audio_data, language="es", beam_size=1, vad_filter=True)
+        texto = " ".join(segmento.text.strip() for segmento in segmentos).strip()
+        return texto
+
+    def iniciar_procesamiento(self):
         while True:
+            audio_data = self.cola_audio.get()
+            if audio_data is None:
+                return
             try:
-                # .get() bloquea este hilo/proceso sin consumir CPU hasta que llegue audio
-                audio_data = self.cola_audio.get()
-                print("Audio recibido desde la cola de memoria. Procesando...") 
-                # Transcribir con Faster-Whisper (Filtra el ruido de fondo nativamente)
-                segments, info = self.modelo_whisper.transcribe(
-                    audio_data, 
-                    language="es",  # Forzamos español para evitar que confunda ruidos con inglés
-                    beam_size=3     # Balance óptimo entre velocidad y precisión
-                )
-                # Unimos los segmentos de texto detectados
-                frase_final = "".join([segment.text for segment in segments]).strip()
-                
-                if frase_final:
-                    print(f"TEXTO TRANSCRITO: '{frase_final}'\n")
+                texto = self.transcribir(audio_data)
+                if texto:
+                    print(f"Texto transcripto: {texto}")
+                    if self.callback_texto:
+                        self.callback_texto(texto)
                 else:
-                    print("Whisper procesó el audio pero no detectó palabras claras (posible ruido falso positivo).\n")                    
-            except Exception as e:
-                print(f"Error en el procesamiento de STT: {e}")
-                
+                    print("Whisper no detectó palabras claras.")
+            except Exception as exc:
+                print(f"Error procesando audio con Whisper: {exc}")
