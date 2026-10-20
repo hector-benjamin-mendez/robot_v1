@@ -13,8 +13,8 @@ class Microfono:
         self.tasa_frecuencia = 16000
         self.tamano_chunk = 480  # 30 ms a 16 kHz: compatible con WebRTC VAD.
         self.cola_audio = cola_audio
-        self.wake_word = wake_word or os.getenv("WAKE_WORD", "alexa")
-        self.modelo_wake_word = Model(wakeword_models=[self.wake_word], inference_framework="onnx")
+        #self.wake_word = wake_word or os.getenv("WAKE_WORD", "alexa")
+        #self.modelo_wake_word = Model(wakeword_models=[self.wake_word], inference_framework="onnx")
         self.detector_voz = DetectorVoz()
         self.esta_escuchando = False
         self.buffer_audio = []
