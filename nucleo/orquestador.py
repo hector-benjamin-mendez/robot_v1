@@ -17,9 +17,16 @@ class Orquestador:
     def cambiar_estado(self, nuevo_estado):
         self.estado = nuevo_estado
         print(f"Tekni estado: {nuevo_estado.value}")
+        if self.pantalla:
+            self.pantalla.actualizar_segon_estado(nuevo_estado)
+
+    def indicar_escucha(self):
+        """Llamar a esto inmediatamente cuando el usuario presiona el pulsador físico."""
+        self.cambiar_estado(Estado.ESCUCHANDO)
 
     def procesar_texto(self, texto):
         if not isinstance(texto, str) or not texto.strip():
+            self.cambiar_estado(Estado.NORMAL)
             return
         texto = texto.strip()
         print(f"\nUsuario: {texto}")
@@ -43,7 +50,7 @@ class Orquestador:
                 texto = mensaje.get("content") or "No tengo una respuesta para eso ahora."
                 self.hablar(texto)
                 return
-            # Ejecutamos todas las herramientas de esta respuesta antes de volver a consultar al LLM.
+            
             for tool_call in tool_calls:
                 resultado = self._ejecutar_tool(tool_call)
                 self.historial.append({
@@ -67,6 +74,7 @@ class Orquestador:
                 return {"success": False, "error": "Argumentos JSON inválidos."}
         if not isinstance(argumentos, dict):
             return {"success": False, "error": "Los argumentos deben ser un objeto."}
+        
         movimiento = nombre in {"mover_adelante", "mover_atras", "girar_izquierda", "girar_derecha", "detener"}
         self.cambiar_estado(Estado.MOVIENDOSE if movimiento else Estado.VIENDO if nombre == "ver_que_hay" else Estado.PENSANDO)
         resultado = self.tools.ejecutar(nombre, argumentos)
