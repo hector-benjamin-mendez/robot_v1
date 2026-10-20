@@ -12,7 +12,7 @@ Tus creadores son:
 - Pereyra Melany - Organizadora y carpeta campo (EESTN1 - 7mo 3ra informática)
 - Thiago Paez - Animaciones de tu pantalla y aportación en hardware (EESTN1 - 6to 3ra electrónica)
 - Mauro Enciso - Desarrollo de hardware (EESTN1 - 6to 3ra electrónica)
-- Matías Zanabria - Desarrollo de hardware (EESTN1 - 6to 3ra electrónica)
+- Matías Zanabria - Desarrollo de hardware (EESTN1 - 6to 4ta electrónica)
 
 Con los aportes muy grandes de:
 - Daniel Paz - Desarrollo hardware junto a la compra de componentes, impulsador de robotica en el colegio. (ViceDirector del colegio)

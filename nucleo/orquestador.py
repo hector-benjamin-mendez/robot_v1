@@ -1,5 +1,4 @@
 import json
-
 from ai.tools import TOOL_DEFINITIONS
 from nucleo.estado import Estado
 

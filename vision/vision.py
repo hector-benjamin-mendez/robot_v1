@@ -1,46 +1,52 @@
 import base64
-import json
 import os
 from pathlib import Path
-
-import requests
-
+from openai import OpenAI  # Usamos la misma librería oficial compatible
 
 class Vision:
     def __init__(self, camara, api_key=None, modelo=None, ruta_imagen="data/foto-capturada.jpg", timeout=60):
         self.camara = camara
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY", "")
-        self.modelo = modelo or os.getenv("OPENAI_VISION_MODEL", os.getenv("OPENAI_MODEL", "gpt-4.1-mini"))
+        self.api_key = api_key or os.getenv("DEEPSEEK_API_KEY", "")
+        # Ajustado por defecto a "deepseek-flash", el modelo de visión oficial de DeepSeek
+        self.modelo = modelo or os.getenv("DEEPSEEK_VISION_MODEL", os.getenv("DEEPSEEK_MODEL", "deepseek-flash"))
         self.ruta_imagen = Path(ruta_imagen)
         self.timeout = timeout
+        
+        # Inicializamos el cliente apuntando correctamente a DeepSeek
+        self.cliente = OpenAI(api_key=self.api_key, base_url="https://deepseek.com")
 
     def describir(self, instruccion="Describí brevemente lo que aparece frente a Tekni."):
         if not self.api_key:
-            return {"success": False, "error": "Falta OPENAI_API_KEY para analizar imágenes."}
+            return {"success": False, "error": "Falta DEEPSEEK_API_KEY para analizar imágenes."}
         try:
+            # 1. Tomar la foto con el objeto cámara
             ruta = Path(self.camara.sacar_foto(str(self.ruta_imagen)))
+            
+            # 2. Codificar la imagen a Base64
             imagen_b64 = base64.b64encode(ruta.read_bytes()).decode("ascii")
-            data_url = "data:image/jpeg;base64," + imagen_b64
-            datos = {
-                "model": self.modelo,
-                "messages": [
-                    {"role": "system", "content": "Sos el sistema visual de Tekni. Describí solamente lo que se ve en la imagen. Diferenciá observaciones de suposiciones y no inventes detalles."},
-                    {"role": "user", "content": [
-                        {"type": "text", "text": instruccion},
-                        {"type": "image_url", "image_url": {"url": data_url, "detail": "auto"}},
-                    ]},
+            data_url = f"data:image/jpeg;base64,{imagen_b64}"
+            
+            # 3. Definir las reglas del sistema visual junto a la instrucción en el bloque de usuario
+            contexto_sistema = "Sos el sistema visual de Tekni. Describí solamente lo que se ve en la imagen. Diferenciá observaciones de suposiciones y no inventes detalles."
+            prompt_final = f"{contexto_sistema}\n\nInstrucción: {instruccion}"
+
+            # 4. Realizar la petición estructurada con el SDK
+            respuesta = self.cliente.chat.completions.create(
+                model=self.modelo,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt_final},
+                            {"type": "image_url", "image_url": {"url": data_url}}
+                        ],
+                    }
                 ],
-            }
-            respuesta = requests.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers={"Authorization": "Bearer " + self.api_key, "Content-Type": "application/json"},
-                data=json.dumps(datos, ensure_ascii=False).encode("utf-8"),
-                timeout=self.timeout,
+                timeout=self.timeout
             )
-            respuesta.raise_for_status()
-            payload = respuesta.json()
-            texto = payload["choices"][0]["message"].get("content", "")
-            return texto.strip() if texto else "No pude describir la imagen."
+            # 5. Extraer y retornar el texto limpio
+            texto = respuesta.choices[0].message.content
+            return texto.strip() if texto else "No pude describir la imagen."            
         except Exception as exc:
             print("Error en visión multimodal: {}".format(exc))
             return {"success": False, "error": "No pude analizar la imagen: {}".format(exc)}
