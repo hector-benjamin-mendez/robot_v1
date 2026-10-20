@@ -18,7 +18,7 @@ class Orquestador:
         self.estado = nuevo_estado
         print(f"Tekni estado: {nuevo_estado.value}")
         if self.pantalla:
-            self.pantalla.actualizar_segon_estado(nuevo_estado)
+            self.pantalla.actualizar_segun_estado(nuevo_estado)
 
     def indicar_escucha(self):
         """Llamar a esto inmediatamente cuando el usuario presiona el pulsador físico."""

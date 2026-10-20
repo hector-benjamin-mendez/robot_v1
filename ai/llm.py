@@ -4,7 +4,7 @@ from openai import OpenAI
 
 class LLM:
     def __init__(self, modelo=None, prompt_path=None, api_key=None, timeout=45):
-        self.modelo = modelo or os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
+        self.modelo = modelo or os.getenv("DEEPSEEK_MODEL", "deepseek-flash")
         self.api_keyy = api_key or os.getenv("DEEPSEEK_API_KEY", "")
         self.cliente = OpenAI(api_key=self.api_keyy,base_url="https://api.deepseek.com")
         self.timeout = timeout
@@ -31,14 +31,19 @@ class LLM:
         datos = {
             "model": self.modelo, 
             "messages": mensajes_completos,
-            "timeout": self.timeout # Aprovecha tu variable de timeout heredada de OpenAI
+            "timeout": self.timeout,
+            # El modo "thinking" viene activado por defecto y agrega latencia: lo apagamos.
+            "extra_body": {"thinking": {"type": "disabled"}},
         }
         if tools:
             datos["tools"] = tools
             datos["tool_choice"] = "auto"           
         try:
             respuesta = self.cliente.chat.completions.create(**datos)
-            return {"message": respuesta.choices[0].message}
+            # Convertimos el objeto del SDK a diccionario para que el orquestador use .get().
+            mensaje = respuesta.choices[0].message.model_dump(exclude_none=True)
+            mensaje.setdefault("content", "")
+            return {"message": mensaje}
             
         except Exception as exc: 
             print("Error consultando DeepSeek: {}".format(exc))

@@ -6,25 +6,50 @@ import math
 
 class Display:
 
-    def __init__(self):
+    # Qué cara muestra cada estado del orquestador (se puede ajustar a gusto).
+    ANIMACION_POR_ESTADO = {
+        "normal": "normal",
+        "escuchando": "sorprendido",
+        "pensando": "normal",
+        "moviendose": "feliz",
+        "viendo": "sorprendido",
+        "hablando": "feliz",
+        "error": "llorando",
+        "emergencia": "enojado",
+    }
+
+    def __init__(self, ventana=False, debug=False):
         # =========================
         # PYGAME
         # =========================
 
-        pygame.init()
+        # Iniciamos solo video y fuentes: pygame.init() también abriría el audio
+        # y podría competir con sounddevice por los parlantes y el micrófono.
+        pygame.display.init()
+        pygame.font.init()
 
-        info_pantalla = pygame.display.Info()
-
-        self.ancho = info_pantalla.current_w
-        self.alto = info_pantalla.current_h
-
-        self.pantalla = pygame.display.set_mode(
-            (self.ancho, self.alto),
-            pygame.FULLSCREEN | pygame.NOFRAME
-        )
-
-        pygame.mouse.set_visible(False)
+        if ventana:
+            self.ancho, self.alto = 960, 540
+            self.pantalla = pygame.display.set_mode((self.ancho, self.alto))
+            pygame.mouse.set_visible(True)
+        else:
+            info_pantalla = pygame.display.Info()
+            self.ancho = info_pantalla.current_w
+            self.alto = info_pantalla.current_h
+            self.pantalla = pygame.display.set_mode(
+                (self.ancho, self.alto),
+                pygame.FULLSCREEN | pygame.NOFRAME
+            )
+            pygame.mouse.set_visible(False)
         pygame.display.set_caption("Tekni")
+
+        # Pulsador (barra espaciadora) y texto de depuración
+        self.al_presionar = None
+        self.al_soltar = None
+        self.animacion_pendiente = None
+        self.debug = debug
+        self.texto_estado = ""
+        self.fuente_debug = pygame.font.Font(None, 36)
 
         self.reloj = pygame.time.Clock()
 
@@ -135,6 +160,17 @@ class Display:
             self.lagrimas.clear()
 
         return True
+
+    def conectar_pulsador(self, al_presionar, al_soltar):
+        """Registra qué se ejecuta cuando se presiona o se suelta la barra espaciadora."""
+        self.al_presionar = al_presionar
+        self.al_soltar = al_soltar
+
+    def actualizar_segun_estado(self, estado):
+        """Lo llama el orquestador (desde otro hilo). Solo anota el cambio: el dibujo
+        lo aplica el hilo principal en actualizar()."""
+        self.animacion_pendiente = self.ANIMACION_POR_ESTADO.get(estado.value, "normal")
+        self.texto_estado = estado.value.upper()
 
     # ==========================================================
     # UTILIDADES
@@ -280,6 +316,14 @@ class Display:
 
                 elif evento.key == pygame.K_5:
                     self.cambiar_animacion("llorando")
+
+                elif evento.key == pygame.K_SPACE and self.al_presionar:
+                    self.al_presionar()
+
+            elif evento.type == pygame.KEYUP:
+
+                if evento.key == pygame.K_SPACE and self.al_soltar:
+                    self.al_soltar()
 
         return True
 
@@ -645,6 +689,14 @@ class Display:
         # Boca
         self.dibujar_boca()
 
+        # Estado actual (solo en modo prueba)
+        if self.debug:
+            texto = self.fuente_debug.render(
+                "Estado: {}   |   ESPACIO = hablar   |   ESC = salir".format(self.texto_estado or "NORMAL"),
+                True, self.CELESTE_NEON
+            )
+            self.pantalla.blit(texto, (20, self.alto - 50))
+
         pygame.display.flip()
 
     # ==========================================================
@@ -652,6 +704,9 @@ class Display:
     # ==========================================================
 
     def actualizar(self):
+        if self.animacion_pendiente is not None:
+            self.cambiar_animacion(self.animacion_pendiente)
+            self.animacion_pendiente = None
         self.tiempo += 0.05
         self.actualizar_parpadeo()
         self.actualizar_objetivos()

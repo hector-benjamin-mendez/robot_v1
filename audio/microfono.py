@@ -20,7 +20,10 @@ class Microfono:
             self.esta_escuchando = True
 
     def detener_grabacion(self):
-        """Llamar a este método exactamente cuando se SUELTE el pulsador."""
+        """Llamar a este método exactamente cuando se SUELTE el pulsador.
+
+        Devuelve True si el audio quedó en la cola de Whisper, False si se descartó.
+        """
         if self.esta_escuchando:
             print("Pulsador liberado: Deteniendo grabación...")
             self.esta_escuchando = False
@@ -34,10 +37,12 @@ class Microfono:
                 try:
                     self.cola_audio.put_nowait(audio_completo)
                     print("Audio enviado a la cola de Whisper.")
+                    return True
                 except queue.Full:
                     print("Cola de audio llena; se descarta esta captura.")
             else:
                 print("Grabación demasiado corta o vacía; se ignora.")
+        return False
 
     def grabar_audio(self, indata, frames, tiempo, estado):
         """Callback continuo de sounddevice. Solo acumula si el pulsador está activo."""

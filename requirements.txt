@@ -1,11 +1,9 @@
-# Base orientativa para Python 3.9+ en ARM64. Jetson Nano original puede requerir
-# compilar/seleccionar wheels compatibles con su versión de JetPack y Python.
+# Base orientativa; en la Jetson, OpenCV conviene instalarlo desde JetPack/apt.
 requests>=2.28,<3
 numpy<2
 sounddevice
-openwakeword
 faster-whisper
-webrtcvad-wheels
 pygame
 pyserial
-# OpenCV: preferir la versión del sistema JetPack para conservar soporte GStreamer.
+openai
+python-dotenv

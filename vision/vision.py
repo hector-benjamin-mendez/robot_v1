@@ -7,10 +7,10 @@ class Vision:
     def __init__(self, camara, api_key=None, modelo=None, ruta_imagen="data/foto-capturada.jpg", timeout=60):
         self.camara = camara
         self.api_key = api_key or os.getenv("DEEPSEEK_API_KEY", "")
-        self.modelo = modelo or os.getenv("DEEPSEEK_VISION_MODEL", os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash"))
+        self.modelo = modelo or os.getenv("DEEPSEEK_VISION_MODEL", os.getenv("DEEPSEEK_MODEL", "deepseek-flash"))
         self.ruta_imagen = Path(ruta_imagen)
         self.timeout = timeout
-        self.cliente = OpenAI(api_key=self.api_key, base_url="https://deepseek.com")
+        self.cliente = OpenAI(api_key=self.api_key, base_url="https://api.deepseek.com")
 
     def describir(self, instruccion="Describí brevemente lo que aparece frente a Tekni."):
         if not self.api_key:
@@ -36,7 +36,8 @@ class Vision:
                         ],
                     }
                 ],
-                timeout=self.timeout
+                timeout=self.timeout,
+                extra_body={"thinking": {"type": "disabled"}},
             )
             texto = respuesta.choices[0].message.content
             return texto.strip() if texto else "No pude describir la imagen."            

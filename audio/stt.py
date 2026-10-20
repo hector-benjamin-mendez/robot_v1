@@ -30,5 +30,9 @@ class ProcesadorSTT:
                         self.callback_texto(texto)
                 else:
                     print("Whisper no detectó palabras claras.")
+                    if self.callback_texto:
+                        self.callback_texto("")  # El orquestador vuelve a reposo con texto vacío.
             except Exception as exc:
                 print(f"Error procesando audio con Whisper: {exc}")
+                if self.callback_texto:
+                    self.callback_texto("")
