@@ -4,8 +4,8 @@ import time
 
 from config import (
     CAMERA_SOURCE, DB_PATH, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID,
-    ESP32_BAUDRATE, ESP32_PORT, OPENAI_API_KEY, OPENAI_MODEL,
-    OPENAI_VISION_MODEL, WAKE_WORD, WHISPER_MODEL,
+    ESP32_BAUDRATE, ESP32_PORT, DEEPSEEK_API_KEY, DEEPSEEK_MODEL,
+    DEEPSEEK_VISION_MODEL, WHISPER_MODEL,
 )
 from ai.llm import LLM
 from ai.tools import Tools
@@ -41,8 +41,8 @@ def hilo_procesar_ordenes(cola_texto, orquestador):
 
 
 def main():
-    if not OPENAI_API_KEY:
-        raise RuntimeError("Configurá OPENAI_API_KEY antes de iniciar Tekni.")
+    if not DEEPSEEK_API_KEY:
+        raise RuntimeError("Configurá DEEPSEEK_API_KEY e iniciar Tekni.")
 
     cola_audio = queue.Queue(maxsize=8)
     cola_texto = queue.Queue()
@@ -56,7 +56,7 @@ def main():
     vision = None
     try:
         camara = Camara(CAMERA_SOURCE)
-        vision = Vision(camara, modelo=OPENAI_VISION_MODEL)
+        vision = Vision(camara, modelo=DEEPSEEK_VISION_MODEL)
         print("Cámara lista para visión multimodal.")
     except Exception as exc:
         print("Visión desactivada: {}".format(exc))
@@ -67,13 +67,13 @@ def main():
     except Exception as exc:
         print("Pantalla desactivada: {}".format(exc))
 
-    llm = LLM(modelo=OPENAI_MODEL)
+    llm = LLM(modelo=DEEPSEEK_MODEL)
     tts = TTS(api_key=ELEVENLABS_API_KEY, voice_id=ELEVENLABS_VOICE_ID)
     herramientas = Tools(movement=movimiento, memory=memoria, vision=vision)
     orquestador = Orquestador(llm, herramientas, tts=tts, memoria=memoria, pantalla=pantalla)
 
     stt = ProcesadorSTT(cola_audio, callback_texto=cola_texto.put, modelo=WHISPER_MODEL)
-    microfono = Microfono(cola_audio, wake_word=WAKE_WORD)
+    microfono = Microfono(cola_audio)
 
     threading.Thread(target=hilo_heartbeat, args=(esp32,), name="esp32-heartbeat", daemon=True).start()
     threading.Thread(target=stt.iniciar_procesamiento, name="whisper-stt", daemon=True).start()

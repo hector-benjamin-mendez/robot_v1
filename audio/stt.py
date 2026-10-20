@@ -1,63 +1,34 @@
-import queue
-import numpy as np
-import sounddevice as sd
+import os
 
-class Microfono:
-    def __init__(self, cola_audio):
-        self.tasa_frecuencia = 16000
-        self.tamano_chunk = 480  # 30 ms a 16 kHz
+from faster_whisper import WhisperModel
+
+
+class ProcesadorSTT:
+    def __init__(self, cola_audio, callback_texto=None, modelo=None):
         self.cola_audio = cola_audio
-        self.esta_escuchando = False
-        self.buffer_audio = []
-        self.stream = None  # Guardamos el stream para poder controlarlo
+        self.callback_texto = callback_texto
+        nombre_modelo = modelo or os.getenv("WHISPER_MODEL", "tiny")
+        print(f"Cargando Faster-Whisper ({nombre_modelo}, CPU int8)...")
+        self.modelo_whisper = WhisperModel(nombre_modelo, device="cpu", compute_type="int8", cpu_threads=2)
+        print("Whisper listo.")
 
-    def iniciar_grabacion(self):
-        """Llamar a este método cuando se presione el pulsador."""
-        if not self.esta_escuchando:
-            print("Pulsador presionado. Grabando...")
-            self.buffer_audio = []
-            self.esta_escuchando = True
+    def transcribir(self, audio_data):
+        segmentos, _ = self.modelo_whisper.transcribe(audio_data, language="es", beam_size=1, vad_filter=True)
+        texto = " ".join(segmento.text.strip() for segmento in segmentos).strip()
+        return texto
 
-    def detener_grabacion(self):
-        """Llamar a este método cuando se suelte el pulsador."""
-        if self.esta_escuchando:
-            print("Pulsador soltado. Procesando audio...")
-            self.esta_escuchando = False  
-            audio_completo = np.concatenate(self.buffer_audio).astype(np.float32) if self.buffer_audio else None
-            self.buffer_audio = []
-            
-            if audio_completo is not None and audio_completo.size >= self.tasa_frecuencia // 4:
-                try:
-                    self.cola_audio.put_nowait(audio_completo)
-                    print("Audio enviado a Whisper.")
-                except queue.Full:
-                    print("Cola de audio llena; se descarta esta captura.")
-            else:
-                print("Grabación demasiado corta o vacía.")
-
-    def grabar_audio(self, indata, frames, tiempo, estado):
-        """Callback continuo de sounddevice."""
-        if estado:
-            print(f"Aviso de audio: {estado}")
-            
-        if self.esta_escuchando:
-            audio = indata.copy().reshape(-1).astype(np.float32)
-            self.buffer_audio.append(audio)
-
-    def iniciar_escucha(self):
-        """Inicia el stream de audio de fondo listo para capturar."""
-        print("Micrófono en espera del pulsador...")
-        self.stream = sd.InputStream(
-            samplerate=self.tasa_frecuencia, 
-            channels=1, 
-            callback=self.grabar_audio, 
-            blocksize=self.tamano_chunk, 
-            dtype="float32"
-        )
-        self.stream.start()
-
-    def detener_escucha(self):
-        """Cierra el stream de audio por completo."""
-        if self.stream:
-            self.stream.stop()
-            self.stream.close()
+    def iniciar_procesamiento(self):
+        while True:
+            audio_data = self.cola_audio.get()
+            if audio_data is None:
+                return
+            try:
+                texto = self.transcribir(audio_data)
+                if texto:
+                    print(f"Texto transcripto: {texto}")
+                    if self.callback_texto:
+                        self.callback_texto(texto)
+                else:
+                    print("Whisper no detectó palabras claras.")
+            except Exception as exc:
+                print(f"Error procesando audio con Whisper: {exc}")
